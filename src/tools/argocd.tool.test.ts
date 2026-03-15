@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { ArgoCDToolArgs } from './argocd.tool.js';
+import type { ArgoCDToolArgs } from './argocd.tool.js';
 import * as metrics from '../metrics/index.js';
 import { missionControlClient } from '../clients/index.js';
 

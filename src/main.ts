@@ -8,6 +8,8 @@ import { startMetricsServer } from './metrics/server.js';
 import { discordBotUp, discordWebsocketLatency } from './metrics/index.js';
 import { logger } from './utils/index.js';
 import { QBittorrentClient } from './clients/QBittorrentClient.js';
+import { MissionControlClient } from './clients/MissionControlClient.js';
+import { registry } from './ai/ToolRegistry.js';
 import packageJson from '../package.json' with { type: 'json' };
 
 // Version info - read dynamically from package.json
@@ -117,6 +119,19 @@ export async function start(): Promise<void> {
     logger.debug('[qBittorrent] Client disabled');
   }
 
+  // Check Mission Control availability if enabled
+  if (config.missionControl.enabled) {
+    const mcClient = new MissionControlClient(config.missionControl.url, config.notificationService.url);
+    const isMcAvailable = await mcClient.isAvailable();
+    if (isMcAvailable) {
+      logger.info('[Mission Control] Backend is available');
+    } else {
+      logger.warn('[Mission Control] Backend is not available');
+    }
+  } else {
+    logger.debug('[Mission Control] Integration disabled');
+  }
+
   // Check Ollama service availability
   const isOllamaAvailable = await ollamaClient.isAvailable();
   if (isOllamaAvailable) {
@@ -124,6 +139,10 @@ export async function start(): Promise<void> {
   } else {
     logger.warn('[Ollama] Service is not available');
   }
+
+  // Log registered tools
+  const toolNames = registry.getToolNames();
+  logger.info(`[Tools] ${toolNames.length} registered: ${toolNames.join(', ')}`);
 
   logger.raw('');
   await client.login(config.discord.token);

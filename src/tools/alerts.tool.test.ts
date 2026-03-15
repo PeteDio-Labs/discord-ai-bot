@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { AlertsToolArgs } from './alerts.tool.js';
+import type { AlertsToolArgs } from './alerts.tool.js';
 import * as metrics from '../metrics/index.js';
 import { missionControlClient } from '../clients/index.js';
 

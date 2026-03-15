@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { InfrastructureToolArgs } from './infrastructure.tool.js';
+import type { InfrastructureToolArgs } from './infrastructure.tool.js';
 import * as metrics from '../metrics/index.js';
 import { missionControlClient } from '../clients/index.js';
 
