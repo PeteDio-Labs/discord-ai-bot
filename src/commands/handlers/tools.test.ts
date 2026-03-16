@@ -32,18 +32,16 @@ function createMockInteraction(toolOption: string | null = null) {
 
 describe('handleToolsCommand', () => {
   beforeEach(() => {
-    // Ensure registry has at least one tool for list view
-    if (registry.size() === 0) {
-      registry.register({
+    // Always register — registry is a singleton shared across test files
+    registry.register({
+      name: 'mission_control',
+      schema: {
         name: 'mission_control',
-        schema: {
-          name: 'mission_control',
-          description: 'Test tool',
-          parameters: { type: 'object', properties: {}, required: [] },
-        },
-        execute: vi.fn().mockResolvedValue({ success: true }),
-      });
-    }
+        description: 'Test tool',
+        parameters: { type: 'object', properties: {}, required: [] },
+      },
+      execute: vi.fn().mockResolvedValue({ success: true }),
+    });
   });
 
   describe('list-all view (no tool argument)', () => {
@@ -63,7 +61,8 @@ describe('handleToolsCommand', () => {
 
       const embed = repliedEmbeds[0]!;
       const mcField = embed.fields.find((f) => f.name.includes('mission_control'));
-      expect(mcField?.name).toContain('[action-based]');
+      expect(mcField).toBeDefined();
+      expect(mcField!.name).toContain('[action-based]');
     });
   });
 
