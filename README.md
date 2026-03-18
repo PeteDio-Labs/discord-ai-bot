@@ -1,143 +1,115 @@
-# Discord AI Bot
+# Discord Bot
 
-A Discord bot with Ollama AI integration and extensible tool support. The bot allows users to interact with AI models through Discord slash commands, with support for function calling and custom tools.
+Ollama-powered AI Discord bot for PeteDio homelab. Provides slash commands with an extensible tool-calling loop for infrastructure management, search, and general queries. Responses are delivered via DM.
 
-## Features
+## Quick Start
 
-- **AI Chat Integration**: Powered by Ollama with support for various models
-- **Tool Support**: Extensible tool system allowing AI to perform actions
-  - Math calculations
-  - Time/date queries
-  - qBittorrent integration (torrent management)
-- **Prometheus Metrics**: Built-in metrics endpoint for monitoring
-- **User Authorization**: Whitelist-based user access control
-- **Docker Support**: Ready-to-deploy Docker configuration
-
-## Requirements
-
-- **Node.js** >= 20.0.0 or **Bun** >= 1.0.0
-- **Ollama** running locally or remotely with a compatible model (e.g., `qwen-tools`)
-- **Discord Bot Token** from [Discord Developer Portal](https://discord.com/developers/applications)
-
-## Setup
-
-### 1. Clone the Repository
 ```bash
-git clone https://github.com/petedillo/discord-ai-bot.git
-cd discord-ai-bot
-```
-
-### 2. Install Dependencies
-```bash
-npm install
-# or
 bun install
+cp .env.example .env  # configure DISCORD_TOKEN, DISCORD_CLIENT_ID, ALLOWED_USER_IDS
+bun dev
 ```
 
-### 3. Configure Environment Variables
-Copy `.env.example` to `.env` and configure:
+## Scripts
 
 ```bash
-cp .env.example .env
+bun dev          # dev server (hot reload)
+bun build        # production build
+bun test         # run tests
+bun run lint
+bun run typecheck
 ```
 
-Required configuration:
-- `DISCORD_TOKEN`: Your Discord bot token
-- `DISCORD_CLIENT_ID`: Your Discord application client ID
-- `ALLOWED_USER_IDS`: Comma-separated Discord user IDs allowed to use the bot
-- `OLLAMA_HOST`: Ollama API endpoint (default: `http://localhost:11434`)
-- `OLLAMA_MODEL`: Model to use (e.g., `qwen-tools`)
+## Stack
 
-Optional configuration:
-- `METRICS_ENABLED`: Enable Prometheus metrics (default: `true`)
-- `METRICS_PORT`: Metrics server port (default: `9090`)
-- `QBIT_ENABLED`: Enable qBittorrent tool (default: `true`)
-- `QBIT_HOST`: qBittorrent WebUI URL
-- `LOG_LEVEL`: Logging level (`debug`, `info`, `warn`, `error`, `silent`)
+- **Runtime:** Bun
+- **Framework:** discord.js, TypeScript
+- **AI:** Ollama (tool-calling loop, configurable model)
+- **Logging:** Pino
+- **Metrics:** prom-client (Prometheus)
 
-### 4. Build the Project
-```bash
-npm run build
+## Architecture
+
+```
+User ──/ask──→ Discord Bot
+                   │
+                   ├──→ Ollama (LLM tool-calling loop, max 5 iterations)
+                   │       │
+                   │       ├──→ mission_control (inventory, ArgoCD, Proxmox, events)
+                   │       ├──→ infrastructure (K8s hosts, pods, workloads)
+                   │       ├──→ argocd (app sync/health)
+                   │       ├──→ alerts (recent infrastructure events)
+                   │       ├──→ web_search (multi-provider via web-search-service)
+                   │       ├──→ qbittorrent (torrent management)
+                   │       ├──→ calculate (math expressions)
+                   │       └──→ get_current_time (timezone queries)
+                   │
+                   └──→ DM (full response embed with question, answer, tools used)
 ```
 
-### 5. Start the Bot
-```bash
-npm run start
-```
+## Slash Commands
 
-For development with auto-reload:
-```bash
-npm run dev
-```
+| Command | Description |
+|---------|-------------|
+| `/ask <question>` | Ask the AI a question — response sent to DMs |
+| `/tools [tool]` | List available tools or view tool details |
+| `/help [topic]` | Bot help with example prompts |
+| `/info` | Bot status and service health |
 
-## Available Commands
+## Environment Variables
 
-- `/ask <question>` - Ask the AI a question. The AI can use available tools to help answer.
-- `/tools` - List all available AI tools
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `DISCORD_TOKEN` | Yes | — | Discord bot token |
+| `DISCORD_CLIENT_ID` | Yes | — | Discord application client ID |
+| `ALLOWED_USER_IDS` | Yes | — | Comma-separated authorized user IDs |
+| `OLLAMA_HOST` | No | `http://localhost:11434` | Ollama API endpoint |
+| `OLLAMA_MODEL` | No | `qwen-tools` | Ollama model name |
+| `METRICS_ENABLED` | No | `true` | Enable Prometheus metrics |
+| `METRICS_PORT` | No | `9090` | Metrics server port |
+| `QBIT_ENABLED` | No | `true` | Enable qBittorrent tool |
+| `QBIT_HOST` | No | — | qBittorrent WebUI URL |
+| `MISSION_CONTROL_URL` | No | — | Mission Control backend URL |
+| `NOTIFICATION_SERVICE_URL` | No | — | Notification service URL |
+| `WEB_SEARCH_URL` | No | — | Web search service URL |
+| `LOG_LEVEL` | No | `info` | Pino log level |
 
-## Docker Deployment
+## Project Structure
 
-### Using Docker Compose
-```bash
-docker-compose up -d
-```
-
-### Building Manually
-```bash
-docker build -t discord-ai-bot .
-docker run -d --env-file .env discord-ai-bot
-```
-
-## Development
-
-### Project Structure
 ```
 src/
-├── ai/              # AI client and tool execution logic
-├── clients/         # External API clients
-├── commands/        # Discord slash commands
-├── config.ts        # Configuration management
+├── ai/              # OllamaClient, ToolExecutor, ToolRegistry
+├── clients/         # MissionControlClient, QBittorrentClient, WebSearchClient
+├── commands/        # Slash command definitions and handlers
+├── data/            # Tool catalog metadata
 ├── events/          # Discord event handlers
 ├── metrics/         # Prometheus metrics
-├── tools/           # AI tool implementations
-└── utils/           # Utility functions
+├── notifications/   # Channel notification utilities (alert-ready)
+├── tools/           # AI tool implementations (auto-loaded *.tool.ts)
+└── utils/           # Logger, permissions
 ```
 
-### Available Scripts
-- `npm run dev` - Start development server with hot reload
-- `npm run build` - Build TypeScript to JavaScript
-- `npm run start` - Run production build
-- `npm run typecheck` - Run TypeScript type checking
-- `npm run lint` - Lint code with ESLint
-- `npm run test` - Run tests with Vitest
-- `npm run test:ui` - Run tests with UI
-- `npm run test:run` - Run tests once without watch mode
+## Prometheus Metrics
 
-### Adding New Tools
-1. Create a new tool file in `src/tools/`
-2. Extend `BaseTool` class
-3. Implement `execute()` method
-4. Register the tool in `src/tools/index.ts`
+| Metric | Type | Description |
+|--------|------|-------------|
+| `discord_bot_up` | Gauge | 1=connected, 0=disconnected |
+| `discord_bot_websocket_latency_seconds` | Gauge | WebSocket ping latency |
+| `discord_bot_messages_processed_total` | Counter | Interactions by command and status |
+| `discord_bot_request_duration_seconds` | Histogram | Command processing duration |
+| `tool_executions_total` | Counter | Tool calls by name and status |
+| `tool_execution_duration_seconds` | Histogram | Per-tool execution time |
+| `ollama_available` | Gauge | Ollama service reachability |
+| `ollama_request_duration_seconds` | Histogram | AI request latency |
+| `mission_control_available` | Gauge | Mission Control reachability |
+| `qbittorrent_available` | Gauge | qBittorrent reachability |
 
-Example:
-```typescript
-import { BaseTool } from './BaseTool.js';
+## Adding Tools
 
-interface MyToolParams {
-  input: string;
-}
+1. Create `src/tools/my-tool.tool.ts`
+2. Extend `BaseTool`, implement `execute()`
+3. Auto-loaded at startup — no manual registration needed
 
-export class MyTool extends BaseTool {
-  name = 'my_tool';
-  description = 'Description of what this tool does';
-  
-  async execute(params: MyToolParams): Promise<string> {
-    // Tool implementation
-    return `Processed: ${params.input}`;
-  }
-}
-```
+## Deployment
 
-## License
-
-This project is open source and available for use and modification.
+Pushed to `docker.toastedbytes.com/discord-bot` via GitHub Actions. ArgoCD Image Updater handles digest bumps. K8s manifests live in `discord-bot-gitops`.
