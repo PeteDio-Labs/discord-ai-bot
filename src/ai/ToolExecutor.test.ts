@@ -264,21 +264,21 @@ describe('ToolExecutor Summarizer Integration', () => {
     vi.restoreAllMocks();
   });
 
-  it('should call summarizer for qbittorrent tool results', async () => {
+  it('should call summarizer for mission_control torrent_list results', async () => {
     vi.spyOn(SummarizerModule, 'getSummarizer').mockReturnValue(
       mockSummarizer as unknown as SummarizerModule.SummarizerClient
     );
 
     const mockTool: ITool = {
-      name: 'qbittorrent',
+      name: 'mission_control',
       schema: {
-        name: 'qbittorrent',
-        description: 'qBittorrent tool',
+        name: 'mission_control',
+        description: 'Mission Control tool',
         parameters: { type: 'object', properties: {}, required: [] },
       },
       execute: vi.fn().mockResolvedValue({
         success: true,
-        action: 'list',
+        action: 'torrent_list',
         count: 2,
         torrents: [{ name: 'Movie1' }, { name: 'Movie2' }],
       }),
@@ -291,7 +291,7 @@ describe('ToolExecutor Summarizer Integration', () => {
         message: {
           role: 'assistant',
           content: '',
-          tool_calls: [{ function: { name: 'qbittorrent', arguments: { action: 'list' } } }],
+          tool_calls: [{ function: { name: 'mission_control', arguments: { action: 'torrent_list' } } }],
         },
         done: true,
       })
@@ -311,7 +311,7 @@ describe('ToolExecutor Summarizer Integration', () => {
     await executor.processMessage('show my downloads');
 
     expect(mockSummarizer.summarize).toHaveBeenCalledWith(
-      expect.objectContaining({ success: true, action: 'list', count: 2 }),
+      expect.objectContaining({ success: true, action: 'torrent_list', count: 2 }),
       'show my downloads'
     );
   });
@@ -364,13 +364,13 @@ describe('ToolExecutor Summarizer Integration', () => {
     vi.spyOn(SummarizerModule, 'getSummarizer').mockReturnValue(null);
 
     const mockTool: ITool = {
-      name: 'qbittorrent',
+      name: 'mission_control',
       schema: {
-        name: 'qbittorrent',
-        description: 'qBittorrent tool',
+        name: 'mission_control',
+        description: 'Mission Control tool',
         parameters: { type: 'object', properties: {}, required: [] },
       },
-      execute: vi.fn().mockResolvedValue({ success: true, action: 'list', torrents: [] }),
+      execute: vi.fn().mockResolvedValue({ success: true, action: 'torrent_list', torrents: [] }),
     };
     registry.register(mockTool);
 
@@ -380,7 +380,7 @@ describe('ToolExecutor Summarizer Integration', () => {
         message: {
           role: 'assistant',
           content: '',
-          tool_calls: [{ function: { name: 'qbittorrent', arguments: { action: 'list' } } }],
+          tool_calls: [{ function: { name: 'mission_control', arguments: { action: 'torrent_list' } } }],
         },
         done: true,
       })
@@ -409,13 +409,13 @@ describe('ToolExecutor Summarizer Integration', () => {
     );
 
     const mockTool: ITool = {
-      name: 'qbittorrent',
+      name: 'mission_control',
       schema: {
-        name: 'qbittorrent',
-        description: 'qBittorrent tool',
+        name: 'mission_control',
+        description: 'Mission Control tool',
         parameters: { type: 'object', properties: {}, required: [] },
       },
-      execute: vi.fn().mockResolvedValue({ success: true, action: 'speeds', downloadSpeed: 1000 }),
+      execute: vi.fn().mockResolvedValue({ success: true, action: 'transfer_speeds', downloadSpeed: 1000 }),
     };
     registry.register(mockTool);
 
@@ -425,7 +425,7 @@ describe('ToolExecutor Summarizer Integration', () => {
         message: {
           role: 'assistant',
           content: '',
-          tool_calls: [{ function: { name: 'qbittorrent', arguments: { action: 'speeds' } } }],
+          tool_calls: [{ function: { name: 'mission_control', arguments: { action: 'transfer_speeds' } } }],
         },
         done: true,
       })
@@ -455,10 +455,10 @@ describe('ToolExecutor Summarizer Integration', () => {
     );
 
     const mockTool: ITool = {
-      name: 'qbittorrent',
+      name: 'mission_control',
       schema: {
-        name: 'qbittorrent',
-        description: 'qBittorrent tool',
+        name: 'mission_control',
+        description: 'Mission Control tool',
         parameters: { type: 'object', properties: {}, required: [] },
       },
       execute: vi.fn().mockResolvedValue({ success: false, error: 'Connection failed' }),
@@ -471,7 +471,7 @@ describe('ToolExecutor Summarizer Integration', () => {
         message: {
           role: 'assistant',
           content: '',
-          tool_calls: [{ function: { name: 'qbittorrent', arguments: { action: 'list' } } }],
+          tool_calls: [{ function: { name: 'mission_control', arguments: { action: 'torrent_list' } } }],
         },
         done: true,
       })

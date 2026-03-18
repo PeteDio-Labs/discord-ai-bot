@@ -82,7 +82,7 @@ describe('handleToolsCommand', () => {
     });
 
     it('should show examples for a tool', async () => {
-      const { interaction, repliedEmbeds } = createMockInteraction('qbittorrent');
+      const { interaction, repliedEmbeds } = createMockInteraction('mission_control');
       await handleToolsCommand(interaction);
 
       const embed = repliedEmbeds[0]!;

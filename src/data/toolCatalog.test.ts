@@ -4,10 +4,7 @@ import { toolCatalog } from './toolCatalog.js';
 describe('toolCatalog', () => {
   const expectedTools = [
     'mission_control',
-    'qbittorrent',
-    'infrastructure',
-    'argocd',
-    'alerts',
+    'web_search',
     'calculate',
     'get_current_time',
   ];
@@ -73,6 +70,6 @@ describe('toolCatalog', () => {
 
   it('should have notes for tools with state-changing actions', () => {
     expect(toolCatalog.mission_control!.notes).toContain('sync_app');
-    expect(toolCatalog.argocd!.notes).toContain('state-changing');
+    expect(toolCatalog.mission_control!.notes).toContain('state-changing');
   });
 });

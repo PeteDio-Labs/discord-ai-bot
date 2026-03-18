@@ -23,16 +23,35 @@ export async function handleToolsCommand(
       embed.setDescription(entry.summary);
 
       if (entry.type === 'action-based' && entry.actions) {
-        const actionList = entry.actions
-          .map((a) => {
-            const params = [
-              ...a.requiredParams.map((p) => `**${p}** (required)`),
-              ...a.optionalParams.map((p) => `${p} (optional)`),
-            ].join(', ');
-            return `\`${a.name}\` — ${a.description}${params ? `\n  Params: ${params}` : ''}`;
-          })
-          .join('\n');
-        embed.addFields({ name: 'Actions', value: actionList, inline: false });
+        const actionLines = entry.actions.map((a) => {
+          const params = [
+            ...a.requiredParams.map((p) => `**${p}** (required)`),
+            ...a.optionalParams.map((p) => `${p} (optional)`),
+          ].join(', ');
+          return `\`${a.name}\` — ${a.description}${params ? `\n  Params: ${params}` : ''}`;
+        });
+
+        // Split into chunks that fit within Discord's 1024-char field limit
+        const chunks: string[] = [];
+        let current = '';
+        for (const line of actionLines) {
+          const candidate = current ? `${current}\n${line}` : line;
+          if (candidate.length > 1024) {
+            if (current) chunks.push(current);
+            current = line;
+          } else {
+            current = candidate;
+          }
+        }
+        if (current) chunks.push(current);
+
+        for (let i = 0; i < chunks.length; i++) {
+          embed.addFields({
+            name: i === 0 ? 'Actions' : 'Actions (cont.)',
+            value: chunks[i]!,
+            inline: false,
+          });
+        }
       } else if (entry.parameters) {
         embed.addFields({
           name: 'Parameters',

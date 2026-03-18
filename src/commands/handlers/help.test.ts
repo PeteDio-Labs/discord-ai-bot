@@ -54,7 +54,7 @@ describe('handleHelpCommand', () => {
 
       const fieldNames = embed.fields.map((f) => f.name);
       expect(fieldNames).toContain('mission_control');
-      expect(fieldNames).toContain('qbittorrent');
+      expect(fieldNames).toContain('web_search');
       expect(fieldNames).toContain('calculate');
     });
 
@@ -95,13 +95,13 @@ describe('handleHelpCommand', () => {
     });
 
     it('should show example prompts', async () => {
-      const { interaction, repliedEmbeds } = createMockInteraction('qbittorrent');
+      const { interaction, repliedEmbeds } = createMockInteraction('mission_control');
       await handleHelpCommand(interaction);
 
       const embed = repliedEmbeds[0]!;
       const tryField = embed.fields.find((f) => f.name === 'Try asking:');
       expect(tryField).toBeDefined();
-      for (const example of toolCatalog.qbittorrent!.examples) {
+      for (const example of toolCatalog.mission_control!.examples) {
         expect(tryField!.value).toContain(example);
       }
     });
