@@ -1,7 +1,8 @@
-// /ask command handler with tool support
+// /ask command handler with tool support — always sends full response to DMs
 import { EmbedBuilder, type ChatInputCommandInteraction } from 'discord.js';
 import type { OllamaClient } from '../../ai/OllamaClient.js';
 import { ToolExecutor } from '../../ai/ToolExecutor.js';
+import type { ToolExecutionRecord } from '../../ai/types.js';
 import { isUserAuthorized, logger } from '../../utils/index.js';
 
 function truncate(text: string | undefined, maxLength: number): string {
@@ -9,31 +10,58 @@ function truncate(text: string | undefined, maxLength: number): string {
   return text.length > maxLength ? text.substring(0, maxLength - 3) + '...' : text;
 }
 
-async function sendFullResponseDM(
+export function buildToolSummary(toolsUsed: ToolExecutionRecord[]): string | null {
+  if (toolsUsed.length === 0) return null;
+  const toolCounts = new Map<string, number>();
+  for (const t of toolsUsed) {
+    toolCounts.set(t.name, (toolCounts.get(t.name) || 0) + 1);
+  }
+  return Array.from(toolCounts.entries())
+    .map(([name, count]) => count > 1 ? `\`${name}\` ×${count}` : `\`${name}\``)
+    .join(', ');
+}
+
+async function sendResponseDM(
   interaction: ChatInputCommandInteraction,
-  fullText: string
-): Promise<void> {
-  const chunkSize = 1900;
+  question: string,
+  response: string,
+  toolSummary: string | null
+): Promise<boolean> {
   try {
     const dmChannel = await interaction.user.createDM();
-    for (let i = 0; i < fullText.length; i += chunkSize) {
-      const chunk = fullText.substring(i, i + chunkSize);
-      await dmChannel.send({ content: chunk });
+
+    const embed = new EmbedBuilder()
+      .setColor(0x5865f2)
+      .setTitle('AI Response')
+      .addFields({ name: 'Question', value: truncate(question, 1024), inline: false })
+      .setTimestamp()
+      .setFooter({ text: `Requested by ${interaction.user.tag}` });
+
+    // Use field for short answers, description for longer ones
+    if (response.length <= 1024) {
+      embed.addFields({ name: 'Answer', value: response || 'No response', inline: false });
+    } else {
+      embed.setDescription(response.substring(0, 4096));
     }
-    await interaction.followUp({ content: 'Full answer sent to your DMs.', ephemeral: true });
-  } catch (dmErr) {
-    logger.warn(
-      'Could not DM user; falling back to ephemeral follow-ups:',
-      dmErr instanceof Error ? dmErr.message : dmErr
-    );
-    try {
-      for (let i = 0; i < fullText.length; i += chunkSize) {
-        const chunk = fullText.substring(i, i + chunkSize);
-        await interaction.followUp({ content: chunk, ephemeral: true });
+
+    if (toolSummary) {
+      embed.addFields({ name: 'Tools Used', value: toolSummary, inline: false });
+    }
+
+    await dmChannel.send({ embeds: [embed] });
+
+    // Send overflow as plain text chunks if response exceeds embed description limit
+    if (response.length > 4096) {
+      const overflow = response.substring(4096);
+      for (let i = 0; i < overflow.length; i += 1900) {
+        await dmChannel.send({ content: overflow.substring(i, i + 1900) });
       }
-    } catch (followErr) {
-      logger.error('Failed to send full answer in follow-ups:', followErr);
     }
+
+    return true;
+  } catch (dmErr) {
+    logger.warn('Could not DM user:', dmErr instanceof Error ? dmErr.message : dmErr);
+    return false;
   }
 }
 
@@ -44,7 +72,6 @@ export async function handleAskCommand(
 ): Promise<void> {
   logger.info(`/ask command received from user ${interaction.user.tag} (${interaction.user.id})`);
 
-  // Check authorization first
   if (!isUserAuthorized(interaction.user.id, allowedUsers)) {
     logger.info(`User ${interaction.user.id} is not authorized`);
     try {
@@ -73,7 +100,6 @@ export async function handleAskCommand(
     const question = interaction.options.getString('question', true);
     logger.info(`Processing question: "${question.substring(0, 100)}${question.length > 100 ? '...' : ''}"`);
 
-    // Check if Ollama is available
     const isAvailable = await ollamaClient.isAvailable();
     if (!isAvailable) {
       logger.warn('Ollama service unavailable');
@@ -85,48 +111,41 @@ export async function handleAskCommand(
     logger.info('Ollama service is available');
 
     const executor = new ToolExecutor(ollamaClient);
-
-    // Process message with tool support
     const result = await executor.processMessage(question);
     logger.info(`Tool execution completed. Tools used: ${result.toolsUsed.map((t) => t.name).join(', ') || 'none'}`);
     logger.debug(`Response length: ${result.response.length} characters`);
 
-    // Build response embed
-    const embed = new EmbedBuilder()
-      .setColor(0x5865f2)
-      .setTitle('AI Response')
-      .addFields(
-        { name: 'Question', value: truncate(question, 1024), inline: false },
-        { name: 'Answer', value: truncate(result.response, 1024), inline: false }
-      )
-      .setTimestamp()
-      .setFooter({ text: `Requested by ${interaction.user.tag}` });
+    const toolSummary = buildToolSummary(result.toolsUsed);
 
-    // Add tools used if any (compress repeated names: "tool ×N")
-    if (result.toolsUsed.length > 0) {
-      const toolCounts = new Map<string, number>();
-      for (const t of result.toolsUsed) {
-        toolCounts.set(t.name, (toolCounts.get(t.name) || 0) + 1);
+    // Always send full response to DMs
+    const dmSuccess = await sendResponseDM(interaction, question, result.response, toolSummary);
+
+    if (dmSuccess) {
+      // Delete the deferred channel reply — nothing to show in the channel
+      try {
+        await interaction.deleteReply();
+      } catch (deleteErr) {
+        logger.warn('Failed to delete deferred reply:', deleteErr instanceof Error ? deleteErr.message : deleteErr);
       }
-      const toolSummary = Array.from(toolCounts.entries())
-        .map(([name, count]) => count > 1 ? `\`${name}\` ×${count}` : `\`${name}\``)
-        .join(', ');
-      embed.addFields({ name: 'Tools Used', value: toolSummary, inline: false });
-    }
-
-    try {
-      await interaction.editReply({ embeds: [embed] });
       logger.info(`/ask command completed successfully for user ${interaction.user.id}`);
-    } catch (replyErr) {
-      logger.error(
-        'Failed to send embed reply:',
-        replyErr instanceof Error ? replyErr.message : replyErr
-      );
-    }
-
-    // Handle truncated responses (DM full answer)
-    if (result.response.length > 1024) {
-      await sendFullResponseDM(interaction, result.response);
+    } else {
+      // DM failed — fall back to ephemeral follow-ups
+      try {
+        await interaction.deleteReply();
+      } catch (deleteErr) {
+        logger.warn('Failed to delete deferred reply:', deleteErr instanceof Error ? deleteErr.message : deleteErr);
+      }
+      const chunkSize = 1900;
+      try {
+        for (let i = 0; i < result.response.length; i += chunkSize) {
+          await interaction.followUp({
+            content: result.response.substring(i, i + chunkSize),
+            ephemeral: true,
+          });
+        }
+      } catch (followErr) {
+        logger.error('Failed to send ephemeral follow-ups:', followErr);
+      }
     }
   } catch (error) {
     logger.error('Ask command error:', error);
