@@ -92,7 +92,7 @@ export const config: Config = {
   },
   eventStream: {
     enabled: getEnvVar('EVENT_STREAM_ENABLED', 'true') === 'true',
-    ownerUserId: getEnvVar('OWNER_USER_ID', '') || parseAllowedUsers(process.env.ALLOWED_USER_IDS)[0] || '',
+    ownerUserId: getEnvVar('OWNER_USER_ID', ''),
   },
   webSearchService: {
     url: getEnvVar('WEB_SEARCH_SERVICE_URL', 'http://web-search-service.web-search.svc.cluster.local:3003'),
