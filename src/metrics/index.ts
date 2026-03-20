@@ -75,6 +75,27 @@ export const mcRequestDuration = new Histogram({
   registers: [register],
 });
 
+// SSE Event Stream Metrics
+export const sseEventsReceived = new Counter({
+  name: 'discord_bot_sse_events_received_total',
+  help: 'Total events received from SSE stream',
+  labelNames: ['source', 'type', 'severity'],
+  registers: [register],
+});
+
+export const sseConnected = new Gauge({
+  name: 'discord_bot_sse_connected',
+  help: '1=connected to SSE stream, 0=disconnected',
+  registers: [register],
+});
+
+export const sseDmsSent = new Counter({
+  name: 'discord_bot_sse_dms_sent_total',
+  help: 'Total DM notifications sent from SSE events',
+  labelNames: ['status'],
+  registers: [register],
+});
+
 // Web Search Service Metrics
 export const wsRequestDuration = new Histogram({
   name: 'discord_bot_web_search_duration_seconds',

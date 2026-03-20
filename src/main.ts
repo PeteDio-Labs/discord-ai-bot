@@ -9,6 +9,7 @@ import { discordBotUp, discordWebsocketLatency } from './metrics/index.js';
 import { logger } from './utils/index.js';
 import { MissionControlClient } from './clients/MissionControlClient.js';
 import { registry } from './ai/ToolRegistry.js';
+import { startEventStream } from './listeners/eventStream.js';
 import packageJson from '../package.json' with { type: 'json' };
 
 // Version info - read dynamically from package.json
@@ -44,7 +45,14 @@ client.once('clientReady', async () => {
   }, 30000); // Update every 30 seconds
 
   await registerCommands();
-  
+
+  // Start SSE event stream listener for DM alerts
+  if (config.eventStream.enabled) {
+    startEventStream(client, config.missionControl.url, config.eventStream.ownerUserId);
+  } else {
+    logger.debug('[EventStream] Disabled');
+  }
+
   // Print startup summary after everything is initialized
   printStartupSummary();
 });
