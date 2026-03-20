@@ -64,7 +64,7 @@ User ──/ask──→ Discord Bot
 | `DISCORD_CLIENT_ID` | Yes | — | Discord application client ID |
 | `ALLOWED_USER_IDS` | Yes | — | Comma-separated authorized user IDs |
 | `OLLAMA_HOST` | No | `http://localhost:11434` | Ollama API endpoint |
-| `OLLAMA_MODEL` | No | `qwen-tools` | Ollama model name |
+| `OLLAMA_MODEL` | No | `qwen2.5:7b` | Ollama model name |
 | `METRICS_ENABLED` | No | `true` | Enable Prometheus metrics |
 | `METRICS_PORT` | No | `9090` | Metrics server port |
 | `QBIT_ENABLED` | No | `true` | Enable qBittorrent tool |

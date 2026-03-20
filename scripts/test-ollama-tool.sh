@@ -4,7 +4,7 @@
 # Usage: ./scripts/test-ollama-tool.sh "your prompt here"
 # Environment:
 #   OLLAMA_HOST - Ollama server URL (default: http://type-shit:11434 - production server)
-#   OLLAMA_MODEL - Main model for tool decisions (default: qwen-tools - optimized for tool calling)
+#   OLLAMA_MODEL - Main model for tool decisions (default: qwen2.5:7b - optimized for tool calling)
 #   SUMMARIZER_MODEL - Small model for data summarization (default: qwen2.5:3b)
 #   SUMMARIZER_ENABLED - Enable summarizer step (default: true)
 #   OLLAMA_TIMEOUT - Curl max-time in seconds (default: 45)
@@ -13,7 +13,7 @@
 set -e
 
 OLLAMA_HOST="${OLLAMA_HOST:-http://type-shit:11434}"
-MODEL="${OLLAMA_MODEL:-qwen-tools}"
+MODEL="${OLLAMA_MODEL:-qwen2.5:7b}"
 SUMMARIZER_MODEL="${SUMMARIZER_MODEL:-qwen2.5:3b}"
 SUMMARIZER_ENABLED="${SUMMARIZER_ENABLED:-true}"
 OLLAMA_TIMEOUT="${OLLAMA_TIMEOUT:-45}"

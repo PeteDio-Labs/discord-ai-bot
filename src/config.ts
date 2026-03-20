@@ -65,7 +65,7 @@ export const config: Config = {
   },
   ollama: {
     host: getEnvVar('OLLAMA_HOST', 'http://localhost:11434'),
-    model: getEnvVar('OLLAMA_MODEL', 'qwen-tools'),
+    model: getEnvVar('OLLAMA_MODEL', 'qwen2.5:7b'),
     timeout: parseInt(getEnvVar('OLLAMA_TIMEOUT', '120000'), 10),
   },
   tools: {
