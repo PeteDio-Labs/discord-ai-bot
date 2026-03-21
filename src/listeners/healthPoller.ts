@@ -170,7 +170,7 @@ async function pollResourcePressure(client: MissionControlClient): Promise<void>
   const pollerName = 'resource-pressure';
   try {
     const [cpuResult, memResult] = await Promise.all([
-      client.getNodeCPU(),
+      client.getNodeCPURatio(),
       client.getNodeMemoryRatio(),
     ]);
 
