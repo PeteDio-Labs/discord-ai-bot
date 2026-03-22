@@ -264,7 +264,7 @@ describe('ToolExecutor Summarizer Integration', () => {
     vi.restoreAllMocks();
   });
 
-  it('should call summarizer for mission_control torrent_list results', async () => {
+  it('should call summarizer for mission_control torrent_details results', async () => {
     vi.spyOn(SummarizerModule, 'getSummarizer').mockReturnValue(
       mockSummarizer as unknown as SummarizerModule.SummarizerClient
     );
@@ -278,9 +278,8 @@ describe('ToolExecutor Summarizer Integration', () => {
       },
       execute: vi.fn().mockResolvedValue({
         success: true,
-        action: 'torrent_list',
-        count: 2,
-        torrents: [{ name: 'Movie1' }, { name: 'Movie2' }],
+        action: 'torrent_details',
+        torrent: { name: 'Movie1', progress: 0.75, size: 1073741824 },
       }),
     };
     registry.register(mockTool);
@@ -291,12 +290,12 @@ describe('ToolExecutor Summarizer Integration', () => {
         message: {
           role: 'assistant',
           content: '',
-          tool_calls: [{ function: { name: 'mission_control', arguments: { action: 'torrent_list' } } }],
+          tool_calls: [{ function: { name: 'mission_control', arguments: { action: 'torrent_details', hash: 'abc123' } } }],
         },
         done: true,
       })
       .mockResolvedValueOnce({
-        message: { role: 'assistant', content: 'Here are your downloads' },
+        message: { role: 'assistant', content: 'Here are the torrent details' },
         done: true,
       });
 
@@ -308,11 +307,11 @@ describe('ToolExecutor Summarizer Integration', () => {
     });
 
     const executor = new ToolExecutor(ollamaClient, 5);
-    await executor.processMessage('show my downloads');
+    await executor.processMessage('show details for movie1');
 
     expect(mockSummarizer.summarize).toHaveBeenCalledWith(
-      expect.objectContaining({ success: true, action: 'torrent_list', count: 2 }),
-      'show my downloads'
+      expect.objectContaining({ success: true, action: 'torrent_details' }),
+      'show details for movie1'
     );
   });
 

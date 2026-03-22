@@ -13,7 +13,7 @@ import { getSummarizer } from './SummarizerClient.js';
 import { logger } from '../utils/index.js';
 
 // Actions that should have their results summarized by the small model
-const SUMMARIZABLE_ACTIONS = new Set(['torrent_list', 'torrent_details', 'transfer_speeds']);
+const SUMMARIZABLE_ACTIONS = new Set(['torrent_details', 'transfer_speeds']);
 
 // Tool usage hints - concise guidance for the AI on how to use each tool
 const TOOL_HINTS: Record<string, string> = {

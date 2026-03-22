@@ -404,21 +404,31 @@ export class MissionControlTool extends BaseTool<MissionControlToolArgs> {
   private async handleTorrentList(filter?: string): Promise<ToolResult> {
     const response = await missionControlClient.getTorrents(filter);
     const torrents = response.data;
+
+    if (torrents.length === 0) {
+      return { success: true, action: 'torrent_list', message: `No torrents${filter ? ` (filter: ${filter})` : ''}.` };
+    }
+
+    // Pre-format as a clean list — present this directly, don't summarize
+    const lines = torrents.map((t) => {
+      const pct = Math.round(t.progress * 100);
+      const size = t.size ? this.formatBytes(t.size) : '?';
+      const speed = t.dl_speed > 0 ? ` ↓${this.formatBytes(t.dl_speed)}/s` : '';
+      return `• ${t.name} — ${pct}% of ${size}${speed} [${t.state}]`;
+    });
+
     return {
       success: true,
       action: 'torrent_list',
-      filter: filter || 'all',
-      count: torrents.length,
-      torrents: torrents.map((t) => ({
-        hash: t.hash,
-        name: t.name,
-        state: t.state,
-        progress: Math.round(t.progress * 100),
-        dl_speed: t.dl_speed,
-        up_speed: t.up_speed,
-        size: t.size,
-      })),
+      message: `${torrents.length} torrent(s)${filter ? ` (${filter})` : ''}:\n${lines.join('\n')}`,
     };
+  }
+
+  private formatBytes(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
   }
 
   private async handleTorrentDetails(hash?: string): Promise<ToolResult> {
