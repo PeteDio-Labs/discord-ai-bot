@@ -10,6 +10,8 @@
  */
 
 import { Client, EmbedBuilder, type Message } from 'discord.js';
+import type { InfraEvent } from '@petedio/shared';
+import { SseListener } from '@petedio/shared';
 import { logger } from '../utils/index.js';
 import {
   sseEventsReceived,
@@ -22,17 +24,7 @@ import { triageEvent, type TriageReport } from './triageHandler.js';
 import { proposeRemediation } from './remediationHandler.js';
 import { MissionControlClient } from '../clients/MissionControlClient.js';
 
-export interface InfraEvent {
-  id?: string;
-  type: string;
-  source: string;
-  severity: 'info' | 'warning' | 'critical';
-  message: string;
-  namespace?: string;
-  affected_service?: string;
-  metadata?: Record<string, unknown>;
-  timestamp?: string;
-}
+export type { InfraEvent };
 
 const SEVERITY_COLORS: Record<string, number> = {
   critical: 0xed4245, // red
@@ -196,123 +188,87 @@ export function startEventStream(
     mcBackendUrl,
     options?.notificationServiceUrl ?? mcBackendUrl,
   );
-  let retryDelay = 1000;
-  const MAX_RETRY_DELAY = 30000;
 
-  async function connect(): Promise<void> {
-    logger.info(`[EventStream] Connecting to ${streamUrl}`);
-
-    try {
-      const response = await fetch(streamUrl, {
-        headers: { Accept: 'text/event-stream' },
-      });
-
-      if (!response.ok || !response.body) {
-        throw new Error(`SSE connection failed: ${response.status}`);
-      }
-
+  const sse = new SseListener(streamUrl, {
+    onConnect: () => {
       sseConnected.set(1);
-      retryDelay = 1000;
       logger.info('[EventStream] Connected to SSE stream');
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() ?? '';
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-
-          try {
-            const data = JSON.parse(line.slice(6));
-            if (data.type === 'connected') continue;
-
-            const event = data as InfraEvent;
-            sseEventsReceived.inc({
-              source: event.source ?? 'unknown',
-              type: event.type ?? 'unknown',
-              severity: event.severity ?? 'info',
-            });
-
-            logger.info(
-              `[EventStream] Event: ${event.source}/${event.type} [${event.severity}] — ${event.message}`,
-            );
-
-            // Deduplication check
-            const dupEntry = dedup.isDuplicate(
-              event.source,
-              event.type,
-              event.affected_service,
-              event.namespace,
-            );
-
-            if (dupEntry) {
-              sseEventsDeduplicated.inc({
-                source: event.source ?? 'unknown',
-                type: event.type ?? 'unknown',
-              });
-              logger.debug(
-                `[EventStream] Deduplicated: ${event.source}/${event.type} (${dupEntry.count} in window)`,
-              );
-              continue;
-            }
-
-            // Severity-based routing
-            switch (event.severity) {
-              case 'critical':
-                // DM owner + auto-triage
-                await sendCriticalDM(
-                  client,
-                  ownerUserId,
-                  event,
-                  undefined,
-                  mcClient,
-                  triageTimeoutMs,
-                );
-                break;
-
-              case 'warning':
-                // No DM — triage only (results logged, visible in MC Web)
-                handleTriageOnly(event, mcClient, triageTimeoutMs).catch((err) => {
-                  logger.error(
-                    `[EventStream] Triage error for warning event:`,
-                    err instanceof Error ? err.message : err,
-                  );
-                });
-                break;
-
-              case 'info':
-              default:
-                // No DM, no triage — info events are visible in MC Web Alerts tab only
-                logger.debug(`[EventStream] Info event suppressed from DM: ${event.message}`);
-                break;
-            }
-          } catch {
-            // Ignore malformed SSE data lines
-          }
-        }
-      }
-
+    },
+    onDisconnect: () => {
       sseConnected.set(0);
-      logger.warn('[EventStream] SSE stream ended, reconnecting...');
-    } catch (err) {
-      sseConnected.set(0);
+      logger.warn('[EventStream] SSE stream disconnected, reconnecting...');
+    },
+    onError: (err) => {
       logger.error(
         `[EventStream] Connection error: ${err instanceof Error ? err.message : err}`,
       );
-    }
+    },
+    onEvent: (data) => {
+      const raw = data as { type?: string } & Partial<InfraEvent>;
+      if (raw.type === 'connected') return;
 
-    logger.info(`[EventStream] Reconnecting in ${retryDelay / 1000}s...`);
-    setTimeout(connect, retryDelay);
-    retryDelay = Math.min(retryDelay * 2, MAX_RETRY_DELAY);
-  }
+      const event = raw as InfraEvent;
+      sseEventsReceived.inc({
+        source: event.source ?? 'unknown',
+        type: event.type ?? 'unknown',
+        severity: event.severity ?? 'info',
+      });
 
-  connect();
+      logger.info(
+        `[EventStream] Event: ${event.source}/${event.type} [${event.severity}] — ${event.message}`,
+      );
+
+      // Deduplication check
+      const dupEntry = dedup.isDuplicate(
+        event.source,
+        event.type,
+        event.affected_service,
+        event.namespace,
+      );
+
+      if (dupEntry) {
+        sseEventsDeduplicated.inc({
+          source: event.source ?? 'unknown',
+          type: event.type ?? 'unknown',
+        });
+        logger.debug(
+          `[EventStream] Deduplicated: ${event.source}/${event.type} (${dupEntry.count} in window)`,
+        );
+        return;
+      }
+
+      // Severity-based routing
+      switch (event.severity) {
+        case 'critical':
+          // DM owner + auto-triage
+          void sendCriticalDM(
+            client,
+            ownerUserId,
+            event,
+            undefined,
+            mcClient,
+            triageTimeoutMs,
+          );
+          break;
+
+        case 'warning':
+          // No DM — triage only (results logged, visible in MC Web)
+          handleTriageOnly(event, mcClient, triageTimeoutMs).catch((err) => {
+            logger.error(
+              `[EventStream] Triage error for warning event:`,
+              err instanceof Error ? err.message : err,
+            );
+          });
+          break;
+
+        case 'info':
+        default:
+          // No DM, no triage — info events are visible in MC Web Alerts tab only
+          logger.debug(`[EventStream] Info event suppressed from DM: ${event.message}`);
+          break;
+      }
+    },
+  });
+
+  sse.start();
 }

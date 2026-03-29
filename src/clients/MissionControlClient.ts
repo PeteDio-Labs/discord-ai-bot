@@ -1,4 +1,7 @@
+import type { InfraEvent } from '@petedio/shared';
 import { mcRequestDuration, mcAvailable } from '../metrics/index.js';
+
+export type { InfraEvent };
 
 export interface InventoryResponse {
   data: {
@@ -59,16 +62,6 @@ export interface ProxmoxNode {
   mem?: number;
   disk?: number;
   uptime?: number;
-}
-
-export interface InfraEvent {
-  id: string;
-  source: string;
-  type: string;
-  severity: string;
-  message: string;
-  timestamp: string;
-  metadata?: Record<string, unknown>;
 }
 
 export interface TorrentInfo {
